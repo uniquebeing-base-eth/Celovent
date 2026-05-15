@@ -2,13 +2,14 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { Home, Search, Plus, Box, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const tabs = [
+type Tab = { to: string; icon: typeof Home; label: string; primary?: boolean };
+const tabs: Tab[] = [
   { to: "/", icon: Home, label: "Home" },
   { to: "/explore", icon: Search, label: "Explore" },
   { to: "/create", icon: Plus, label: "Create", primary: true },
   { to: "/memebox", icon: Box, label: "MemeBox" },
   { to: "/profile", icon: User, label: "Profile" },
-] as const;
+];
 
 export function MobileShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
