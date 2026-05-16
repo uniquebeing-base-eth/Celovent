@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { MobileShell } from "@/components/MobileShell";
 import { TopBar } from "@/components/TopBar";
-import { me, memes } from "@/lib/mock-data";
+import { memes } from "@/lib/mock-data";
 import { PurpleTick } from "@/components/PurpleTick";
-import { Coins, Heart, Repeat2, Settings, Sparkles } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Coins, Heart, LogOut, Repeat2, Sparkles } from "lucide-react";
+import { useMe } from "@/hooks/use-me";
+import { shortAddress, useWallet } from "@/hooks/use-wallet";
 
 export const Route = createFileRoute("/profile")({
   component: ProfilePage,
@@ -13,30 +14,36 @@ export const Route = createFileRoute("/profile")({
 
 function ProfilePage() {
   const myMemes = memes.slice(0, 4);
+  const { profile, address, balance } = useMe();
+  const { disconnect } = useWallet();
+  const username = profile?.username ?? "anon";
+  const avatar = profile?.avatar_url ?? `https://api.dicebear.com/7.x/thumbs/svg?seed=${address ?? "anon"}`;
+  const purple = profile?.purple_tick ?? false;
+
   return (
     <MobileShell>
       <TopBar />
       <div className="px-4 pt-4 space-y-5">
         <div className="flex items-start gap-4">
-          <img src={me.avatar} alt="" className="w-20 h-20 rounded-full border-2 border-[var(--neon)] shadow-neon" />
+          <img src={avatar} alt="" className="w-20 h-20 rounded-full border-2 border-[var(--neon)] shadow-neon" />
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <h1 className="font-display text-2xl">{me.username}</h1>
-              {me.purpleTick && <PurpleTick size={18} />}
+              <h1 className="font-display text-2xl">@{username}</h1>
+              {purple && <PurpleTick size={18} />}
             </div>
-            <p className="text-xs font-mono-chaos text-muted-foreground">{me.wallet}</p>
-            <p className="mt-1 text-sm">making memes, breaking chains 🐸</p>
+            <p className="text-xs font-mono-chaos text-muted-foreground">{shortAddress(address)}</p>
+            <p className="mt-1 text-sm">{profile?.bio || "making memes, breaking chains 🐸"}</p>
           </div>
-          <button aria-label="Settings" className="p-2"><Settings className="w-5 h-5" /></button>
+          <button aria-label="Disconnect" onClick={disconnect} className="p-2"><LogOut className="w-5 h-5" /></button>
         </div>
 
         <div className="grid grid-cols-3 gap-2 text-center">
-          <Stat icon={Heart} value="4.2K" label="likes" />
-          <Stat icon={Coins} value="86" label="cUSD" />
-          <Stat icon={Repeat2} value="124" label="remixes" />
+          <Stat icon={Heart} value="0" label="likes" />
+          <Stat icon={Coins} value={balance} label="cUSD" />
+          <Stat icon={Repeat2} value="0" label="remixes" />
         </div>
 
-        {!me.purpleTick && (
+        {!purple && (
           <Link
             to="/subscribe"
             className="block rounded-3xl gradient-celo p-[2px] active:scale-[0.99] transition-transform"
