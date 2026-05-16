@@ -4,6 +4,7 @@ import { Loader2, Wallet, Sparkles } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { writeContract, waitForTransactionReceipt, readContract } from "viem/actions";
+import { celo } from "viem/chains";
 import { useWallet, shortAddress } from "@/hooks/use-wallet";
 import { getWalletClient, publicClient } from "@/lib/wallet";
 import { REGISTRY_ABI, REGISTRY_ADDRESS } from "@/lib/contracts/registry";
@@ -74,7 +75,7 @@ function ConnectPage() {
       toast.message("Confirm in your wallet…");
       const hash = await writeContract(wc, {
         account: address,
-        chain: undefined,
+        chain: celo,
         address: REGISTRY_ADDRESS,
         abi: REGISTRY_ABI,
         functionName: "registerUser",
