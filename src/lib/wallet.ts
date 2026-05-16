@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, custom, http, type WalletClient, type PublicClient } from "viem";
+import { createPublicClient, createWalletClient, custom, http, type WalletClient } from "viem";
 import { celo } from "viem/chains";
 
 declare global {
@@ -12,7 +12,7 @@ declare global {
   }
 }
 
-export const publicClient: PublicClient = createPublicClient({
+export const publicClient = createPublicClient({
   chain: celo,
   transport: http("https://forno.celo.org"),
 });
