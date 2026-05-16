@@ -3,7 +3,7 @@ import { MobileShell } from "@/components/MobileShell";
 import { TopBar } from "@/components/TopBar";
 import { memes } from "@/lib/mock-data";
 import { PurpleTick } from "@/components/PurpleTick";
-import { Coins, Heart, LogOut, Repeat2, Settings, Sparkles } from "lucide-react";
+import { Coins, Heart, LogOut, Repeat2, Sparkles } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
 import { shortAddress, useWallet } from "@/hooks/use-wallet";
 
