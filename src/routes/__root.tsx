@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -8,6 +9,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { WalletProvider, useWallet } from "@/hooks/use-wallet";
 
 import appCss from "../styles.css?url";
 
@@ -113,8 +115,28 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <Toaster position="top-center" theme="dark" />
+      <WalletProvider>
+        <RouteGuard>
+          <Outlet />
+        </RouteGuard>
+        <Toaster position="top-center" theme="dark" />
+      </WalletProvider>
     </QueryClientProvider>
   );
+}
+
+function RouteGuard({ children }: { children: React.ReactNode }) {
+  const { isConnected } = useWallet();
+  const router = useRouter();
+  const path = router.state.location.pathname;
+  const isPublic = path === "/connect";
+
+  useEffect(() => {
+    if (!isConnected && !isPublic) {
+      router.navigate({ to: "/connect" });
+    }
+  }, [isConnected, isPublic, router]);
+
+  if (!isConnected && !isPublic) return null;
+  return <>{children}</>;
 }
