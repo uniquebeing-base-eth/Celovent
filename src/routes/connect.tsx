@@ -75,7 +75,7 @@ function ConnectPage() {
       toast.message("Confirm in your wallet…");
       const hash = await writeContract(wc, {
         account: address,
-        chain: undefined,
+        chain: celo,
         address: REGISTRY_ADDRESS,
         abi: REGISTRY_ABI,
         functionName: "registerUser",
