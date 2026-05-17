@@ -16,6 +16,31 @@ export const Route = createFileRoute("/connect")({
   head: () => ({ meta: [{ title: "Connect · Celovent" }] }),
 });
 
+type PendingRegistration = { username: string; txHash: `0x${string}` };
+
+function pendingRegistrationKey(wallet: string) {
+  return `celovent.registration.${wallet.toLowerCase()}`;
+}
+
+function readPendingRegistration(wallet: string): PendingRegistration | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(pendingRegistrationKey(wallet)) ?? "null") as PendingRegistration | null;
+    if (!parsed?.username || !/^0x[a-fA-F0-9]{64}$/.test(parsed.txHash)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingRegistration(wallet: string, pending: PendingRegistration) {
+  localStorage.setItem(pendingRegistrationKey(wallet), JSON.stringify(pending));
+}
+
+function clearPendingRegistration(wallet: string) {
+  localStorage.removeItem(pendingRegistrationKey(wallet));
+}
+
 function ConnectPage() {
   const { address, isConnected, isMiniPay, connecting, connect } = useWallet();
   const navigate = useNavigate();
@@ -46,12 +71,25 @@ function ConnectPage() {
             navigate({ to: "/" });
             return;
           }
+
+          const pending = readPendingRegistration(address);
+          if (pending && pending.username.toLowerCase() === name.toLowerCase()) {
+            setStep("saving");
+            await saveProfile({ data: { wallet: address, username: name, txHash: pending.txHash } });
+            clearPendingRegistration(address);
+            toast.success(`@${name} profile synced`);
+            navigate({ to: "/" });
+            return;
+          }
         }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not check registration";
+        toast.error(msg.length > 140 ? "Could not check registration" : msg);
       } finally {
         setStep("idle");
       }
     })();
-  }, [address, fetchProfile, navigate]);
+  }, [address, fetchProfile, navigate, saveProfile]);
 
   async function handleRegister() {
     if (!address) return;
@@ -83,6 +121,7 @@ function ConnectPage() {
         functionName: "registerUser",
         args: [clean],
       });
+      writePendingRegistration(address, { username: clean, txHash: hash });
       toast.message("Waiting for confirmation…");
       await waitForTransactionReceipt(publicClient, { hash });
 
@@ -90,6 +129,7 @@ function ConnectPage() {
       await saveProfile({
         data: { wallet: address, username: clean, txHash: hash },
       });
+      clearPendingRegistration(address);
       toast.success(`@${clean} claimed on-chain`);
       navigate({ to: "/" });
     } catch (e: unknown) {
