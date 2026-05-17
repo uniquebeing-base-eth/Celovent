@@ -1,12 +1,21 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { createPublicClient, http, verifyMessage, isAddress, getAddress } from "viem";
+import { createPublicClient, http, isAddress, getAddress } from "viem";
 import { celo } from "viem/chains";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const publicClient = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
 
 const ADDRESS = z.string().refine(isAddress, "Invalid address").transform((v) => getAddress(v));
+const REGISTRY_READ_ABI = [
+  {
+    type: "function",
+    name: "usernames",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "address" }],
+    outputs: [{ name: "", type: "string" }],
+  },
+] as const;
 
 export const getProfile = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ wallet: ADDRESS }).parse(input))
@@ -26,8 +35,6 @@ export const createProfile = createServerFn({ method: "POST" })
       .object({
         wallet: ADDRESS,
         username: z.string().min(3).max(24).regex(/^[a-zA-Z0-9_.-]+$/, "Invalid username"),
-        signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
-        message: z.string().min(10).max(500),
         txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
         avatarUrl: z.string().url().optional(),
         bio: z.string().max(280).optional(),
@@ -35,22 +42,33 @@ export const createProfile = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    // 1. Verify the message was signed by the claimed wallet
-    const ok = await verifyMessage({
-      address: data.wallet,
-      message: data.message,
-      signature: data.signature as `0x${string}`,
-    });
-    if (!ok) throw new Error("Invalid signature");
+    const registryAddress = process.env.VITE_CELOVENT_REGISTRY_ADDRESS as `0x${string}` | undefined;
+    if (!registryAddress || !isAddress(registryAddress)) throw new Error("Registry contract not configured");
 
-    // 2. Confirm the registration tx exists on Celo and was sent by this wallet
+    // 1. Confirm the registration tx succeeded on Celo, was sent by this wallet, and targeted our registry.
     const tx = await publicClient.getTransaction({ hash: data.txHash as `0x${string}` }).catch(() => null);
     if (!tx) throw new Error("Transaction not found on Celo");
     if (tx.from.toLowerCase() !== data.wallet.toLowerCase()) {
       throw new Error("Transaction sender mismatch");
     }
+    if (tx.to?.toLowerCase() !== registryAddress.toLowerCase()) {
+      throw new Error("Transaction registry mismatch");
+    }
 
-    // 3. Upsert profile (wallet stored lowercased)
+    const receipt = await publicClient.getTransactionReceipt({ hash: data.txHash as `0x${string}` }).catch(() => null);
+    if (!receipt || receipt.status !== "success") throw new Error("Registration transaction was not confirmed");
+
+    const onChainUsername = (await publicClient.readContract({
+      address: registryAddress,
+      abi: REGISTRY_READ_ABI,
+      functionName: "usernames",
+      args: [data.wallet],
+    })) as string;
+    if (onChainUsername.toLowerCase() !== data.username.toLowerCase()) {
+      throw new Error("On-chain username mismatch");
+    }
+
+    // 2. Upsert profile (wallet stored lowercased)
     const walletLower = data.wallet.toLowerCase();
     const { data: row, error } = await supabaseAdmin
       .from("profiles")
