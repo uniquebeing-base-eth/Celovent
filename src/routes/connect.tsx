@@ -85,10 +85,8 @@ function ConnectPage() {
       await waitForTransactionReceipt(publicClient, { hash });
 
       setStep("saving");
-      const message = `Celovent profile creation\nWallet: ${address}\nUsername: ${clean}\nTx: ${hash}`;
-      const signature = (await wc.signMessage({ account: address, message })) as `0x${string}`;
       await saveProfile({
-        data: { wallet: address, username: clean, signature, message, txHash: hash },
+        data: { wallet: address, username: clean, txHash: hash },
       });
       toast.success(`@${clean} claimed on-chain`);
       navigate({ to: "/" });
