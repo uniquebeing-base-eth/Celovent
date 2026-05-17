@@ -1,4 +1,5 @@
-export const REGISTRY_ADDRESS = (import.meta.env.VITE_CELOVENT_REGISTRY_ADDRESS ?? "") as `0x${string}`;
+export const REGISTRY_ADDRESS = (import.meta.env.VITE_CELOVENT_REGISTRY_ADDRESS ??
+  "0x86164d52CA338f2ce0bA9218135AF3a1E26E1063") as `0x${string}`;
 
 export const REGISTRY_ABI = [
   {
