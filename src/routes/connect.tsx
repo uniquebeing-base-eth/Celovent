@@ -56,7 +56,9 @@ function ConnectPage() {
   async function handleRegister() {
     if (!address) return;
     if (!REGISTRY_ADDRESS) {
-      toast.error("Registry contract not configured. Deploy CeloventRegistry.sol and set VITE_CELOVENT_REGISTRY_ADDRESS.");
+      toast.error(
+        "Registry contract not configured. Deploy CeloventRegistry.sol and set VITE_CELOVENT_REGISTRY_ADDRESS.",
+      );
       return;
     }
     const wc = getWalletClient();
@@ -101,8 +103,13 @@ function ConnectPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6">
-        <div className="flex justify-center"><Logo /></div>
-        <h1 className="font-display text-4xl text-center -rotate-1" style={{ color: "var(--neon)" }}>
+        <div className="flex justify-center">
+          <Logo />
+        </div>
+        <h1
+          className="font-display text-4xl text-center -rotate-1"
+          style={{ color: "var(--neon)" }}
+        >
           ENTER THE CHAOS
         </h1>
 
@@ -112,7 +119,11 @@ function ConnectPage() {
             disabled={connecting}
             className="w-full rounded-2xl bg-foreground text-background font-bold py-4 flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50"
           >
-            {connecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wallet className="w-5 h-5" />}
+            {connecting ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Wallet className="w-5 h-5" />
+            )}
             {isMiniPay ? "Connecting MiniPay…" : "Connect Wallet"}
           </button>
         ) : (
@@ -133,15 +144,22 @@ function ConnectPage() {
               </p>
             ) : onChainName ? (
               <div className="text-center space-y-3">
-                <p className="text-sm">Already registered as <span className="font-bold">@{onChainName}</span></p>
-                <button onClick={() => navigate({ to: "/" })} className="w-full rounded-2xl gradient-celo text-background font-bold py-4">
+                <p className="text-sm">
+                  Already registered as <span className="font-bold">@{onChainName}</span>
+                </p>
+                <button
+                  onClick={() => navigate({ to: "/" })}
+                  className="w-full rounded-2xl gradient-celo text-background font-bold py-4"
+                >
                   Enter app →
                 </button>
               </div>
             ) : (
               <div className="space-y-3">
                 <label className="block">
-                  <span className="text-xs font-mono-chaos text-muted-foreground">PICK YOUR HANDLE</span>
+                  <span className="text-xs font-mono-chaos text-muted-foreground">
+                    PICK YOUR HANDLE
+                  </span>
                   <input
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -158,7 +176,11 @@ function ConnectPage() {
                   {step === "tx" && <Loader2 className="w-5 h-5 animate-spin" />}
                   {step === "saving" && <Loader2 className="w-5 h-5 animate-spin" />}
                   {step === "idle" && <Sparkles className="w-5 h-5" />}
-                  {step === "tx" ? "Signing tx…" : step === "saving" ? "Creating profile…" : "Claim on-chain"}
+                  {step === "tx"
+                    ? "Signing tx…"
+                    : step === "saving"
+                      ? "Creating profile…"
+                      : "Claim on-chain"}
                 </button>
                 <p className="text-[11px] text-muted-foreground font-mono-chaos text-center">
                   one-time · ~$0.01 cUSD gas · stored on Celo mainnet
@@ -170,8 +192,10 @@ function ConnectPage() {
 
         {!REGISTRY_ADDRESS && (
           <div className="rounded-xl border border-[var(--hot)]/40 bg-[var(--hot)]/10 p-3 text-xs">
-            <strong>Setup required:</strong> deploy <code>contracts/CeloventRegistry.sol</code> and set
-            <code className="mx-1">VITE_CELOVENT_REGISTRY_ADDRESS</code>. See <code>contracts/DEPLOY.md</code>.
+            <strong>Setup required:</strong> deploy <code>contracts/CeloventRegistry.sol</code> and
+            set
+            <code className="mx-1">VITE_CELOVENT_REGISTRY_ADDRESS</code>. See{" "}
+            <code>contracts/DEPLOY.md</code>.
           </div>
         )}
       </div>
