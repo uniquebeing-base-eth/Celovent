@@ -25,7 +25,9 @@ function pendingRegistrationKey(wallet: string) {
 function readPendingRegistration(wallet: string): PendingRegistration | null {
   if (typeof window === "undefined") return null;
   try {
-    const parsed = JSON.parse(localStorage.getItem(pendingRegistrationKey(wallet)) ?? "null") as PendingRegistration | null;
+    const parsed = JSON.parse(
+      localStorage.getItem(pendingRegistrationKey(wallet)) ?? "null",
+    ) as PendingRegistration | null;
     if (!parsed?.username || !/^0x[a-fA-F0-9]{64}$/.test(parsed.txHash)) return null;
     return parsed;
   } catch {
@@ -75,7 +77,9 @@ function ConnectPage() {
           const pending = readPendingRegistration(address);
           if (pending && pending.username.toLowerCase() === name.toLowerCase()) {
             setStep("saving");
-            await saveProfile({ data: { wallet: address, username: name, txHash: pending.txHash } });
+            await saveProfile({
+              data: { wallet: address, username: name, txHash: pending.txHash },
+            });
             clearPendingRegistration(address);
             toast.success(`@${name} profile synced`);
             navigate({ to: "/" });
