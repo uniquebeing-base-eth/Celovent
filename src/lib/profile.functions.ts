@@ -5,6 +5,7 @@ import { celo } from "viem/chains";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const publicClient = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
+const DEPLOYED_REGISTRY_ADDRESS = "0x86164d52CA338f2ce0bA9218135AF3a1E26E1063" as const;
 
 const ADDRESS = z.string().refine(isAddress, "Invalid address").transform((v) => getAddress(v));
 const REGISTRY_READ_ABI = [
@@ -42,7 +43,9 @@ export const createProfile = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const registryAddress = process.env.VITE_CELOVENT_REGISTRY_ADDRESS as `0x${string}` | undefined;
+    const registryAddress = (process.env.VITE_CELOVENT_REGISTRY_ADDRESS || DEPLOYED_REGISTRY_ADDRESS) as
+      | `0x${string}`
+      | undefined;
     if (!registryAddress || !isAddress(registryAddress)) throw new Error("Registry contract not configured");
 
     // 1. Confirm the registration tx succeeded on Celo, was sent by this wallet, and targeted our registry.
