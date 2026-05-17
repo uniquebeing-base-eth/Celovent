@@ -1,5 +1,7 @@
 # Deploying CeloventRegistry to Celo mainnet
 
+contract : 0x86164d52CA338f2ce0bA9218135AF3a1E26E1063
+
 You need ~0.05 CELO (~$0.02) in a wallet with the Celo network added.
 
 ## Option A — Remix (easiest, 3 minutes)
