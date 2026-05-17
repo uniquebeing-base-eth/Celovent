@@ -1,0 +1,1 @@
+drop policy if exists "Public read public-assets" on storage.objects;

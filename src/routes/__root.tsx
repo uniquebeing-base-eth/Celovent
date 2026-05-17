@@ -83,6 +83,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { property: "og:image", content: "/favicon.png" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "talentapp:project_verification", content: "5e9a52377cab5be36fd5bb31db9eac50c893b8c58d2fd90e2a5ad2d7a5b8f657d774b3c8cd060af953e34d06ba844311b65a7d554b4222c39c0ef15a5cda7369" },
     ],
     links: [
       { rel: "icon", type: "image/png", href: "/favicon.png" },
