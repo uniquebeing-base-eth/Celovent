@@ -9,10 +9,34 @@ type ServerEntry = {
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
+function hydrateProcessEnvFromWorkerBindings(env: unknown): void {
+  if (!env || typeof env !== "object" || typeof process === "undefined") return;
+
+  const bindings = env as Record<string, unknown>;
+  const keys = [
+    "SUPABASE_URL",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "VITE_SUPABASE_URL",
+    "VITE_SUPABASE_PUBLISHABLE_KEY",
+    "VITE_CELOVENT_REGISTRY_ADDRESS",
+  ];
+
+  for (const key of keys) {
+    const value = bindings[key];
+    if (typeof value === "string" && value.length > 0 && !process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+
+  process.env.SUPABASE_URL ??= process.env.VITE_SUPABASE_URL;
+  process.env.SUPABASE_PUBLISHABLE_KEY ??= process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+}
+
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(
-      (m) => ((m as { default?: ServerEntry }).default ?? (m as unknown as ServerEntry)),
+      (m) => (m as { default?: ServerEntry }).default ?? (m as unknown as ServerEntry),
     );
   }
   return serverEntryPromise;
@@ -69,6 +93,7 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      hydrateProcessEnvFromWorkerBindings(env);
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
