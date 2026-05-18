@@ -14,13 +14,103 @@ export type Database = {
   }
   public: {
     Tables: {
+      meme_tips: {
+        Row: {
+          amount_cusd: number
+          created_at: string
+          from_wallet: string
+          id: string
+          meme_id: string
+          to_wallet: string
+          tx_hash: string
+        }
+        Insert: {
+          amount_cusd: number
+          created_at?: string
+          from_wallet: string
+          id?: string
+          meme_id: string
+          to_wallet: string
+          tx_hash: string
+        }
+        Update: {
+          amount_cusd?: number
+          created_at?: string
+          from_wallet?: string
+          id?: string
+          meme_id?: string
+          to_wallet?: string
+          tx_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meme_tips_meme_id_fkey"
+            columns: ["meme_id"]
+            isOneToOne: false
+            referencedRelation: "memes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memes: {
+        Row: {
+          ai_generated: boolean
+          caption: string
+          created_at: string
+          creator_wallet: string
+          id: string
+          image_url: string
+          likes_count: number
+          parent_id: string | null
+          remix_count: number
+          tags: string[]
+          tips_total: number
+        }
+        Insert: {
+          ai_generated?: boolean
+          caption?: string
+          created_at?: string
+          creator_wallet: string
+          id?: string
+          image_url: string
+          likes_count?: number
+          parent_id?: string | null
+          remix_count?: number
+          tags?: string[]
+          tips_total?: number
+        }
+        Update: {
+          ai_generated?: boolean
+          caption?: string
+          created_at?: string
+          creator_wallet?: string
+          id?: string
+          image_url?: string
+          likes_count?: number
+          parent_id?: string | null
+          remix_count?: number
+          tags?: string[]
+          tips_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "memes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          ai_uses_remaining: number
           avatar_url: string | null
           balance_cusd: number
           bio: string | null
           created_at: string
           purple_tick: boolean
+          purple_tick_expires_at: string | null
           tx_hash: string | null
           updated_at: string
           username: string
@@ -28,11 +118,13 @@ export type Database = {
           wallet_address: string
         }
         Insert: {
+          ai_uses_remaining?: number
           avatar_url?: string | null
           balance_cusd?: number
           bio?: string | null
           created_at?: string
           purple_tick?: boolean
+          purple_tick_expires_at?: string | null
           tx_hash?: string | null
           updated_at?: string
           username: string
@@ -40,15 +132,50 @@ export type Database = {
           wallet_address: string
         }
         Update: {
+          ai_uses_remaining?: number
           avatar_url?: string | null
           balance_cusd?: number
           bio?: string | null
           created_at?: string
           purple_tick?: boolean
+          purple_tick_expires_at?: string | null
           tx_hash?: string | null
           updated_at?: string
           username?: string
           verified?: boolean
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          amount_cusd: number
+          created_at: string
+          expires_at: string
+          id: string
+          plan: string
+          starts_at: string
+          tx_hash: string
+          wallet_address: string
+        }
+        Insert: {
+          amount_cusd: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          plan: string
+          starts_at?: string
+          tx_hash: string
+          wallet_address: string
+        }
+        Update: {
+          amount_cusd?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          plan?: string
+          starts_at?: string
+          tx_hash?: string
           wallet_address?: string
         }
         Relationships: []
