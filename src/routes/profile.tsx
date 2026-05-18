@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MobileShell } from "@/components/MobileShell";
 import { TopBar } from "@/components/TopBar";
-import { memes } from "@/lib/mock-data";
 import { PurpleTick } from "@/components/PurpleTick";
 import { Coins, Heart, LogOut, Repeat2, Sparkles } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
 import { shortAddress, useWallet } from "@/hooks/use-wallet";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { getUserMemes } from "@/lib/feed.functions";
 
 export const Route = createFileRoute("/profile")({
   component: ProfilePage,
@@ -13,12 +15,18 @@ export const Route = createFileRoute("/profile")({
 });
 
 function ProfilePage() {
-  const myMemes = memes.slice(0, 4);
   const { profile, address, balance } = useMe();
   const { disconnect } = useWallet();
+  const fetchMine = useServerFn(getUserMemes);
+  const { data } = useQuery({
+    queryKey: ["my-memes", address],
+    queryFn: () => fetchMine({ data: { wallet: address! } }),
+    enabled: !!address,
+  });
   const username = profile?.username ?? "anon";
   const avatar = profile?.avatar_url ?? `https://api.dicebear.com/7.x/thumbs/svg?seed=${address ?? "anon"}`;
   const purple = profile?.purple_tick ?? false;
+  const myMemes = data?.memes ?? [];
 
   return (
     <MobileShell>
@@ -38,7 +46,7 @@ function ProfilePage() {
         </div>
 
         <div className="grid grid-cols-3 gap-2 text-center">
-          <Stat icon={Heart} value="0" label="likes" />
+          <Stat icon={Heart} value={String(myMemes.length)} label="memes" />
           <Stat icon={Coins} value={balance} label="cUSD" />
           <Stat icon={Repeat2} value="0" label="remixes" />
         </div>
@@ -65,13 +73,19 @@ function ProfilePage() {
 
         <section>
           <h2 className="font-display text-xl mb-2">MY MEMES</h2>
-          <div className="grid grid-cols-3 gap-1.5">
-            {myMemes.map((m) => (
-              <div key={m.id} className="aspect-square rounded-xl overflow-hidden border border-border">
-                <img src={m.image} alt="" loading="lazy" className="w-full h-full object-cover" />
-              </div>
-            ))}
-          </div>
+          {myMemes.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+              No memes yet. <Link to="/create" className="text-[var(--neon)] font-bold">Create one →</Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {myMemes.map((m) => (
+                <div key={m.id} className="aspect-square rounded-xl overflow-hidden border border-border">
+                  <img src={m.image_url} alt={m.caption} loading="lazy" className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </MobileShell>

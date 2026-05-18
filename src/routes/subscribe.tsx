@@ -1,17 +1,23 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { MobileShell } from "@/components/MobileShell";
-import { ArrowLeft, Sparkles, Check } from "lucide-react";
+import { ArrowLeft, Sparkles, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PurpleTick } from "@/components/PurpleTick";
+import { useState } from "react";
+import { useWallet } from "@/hooks/use-wallet";
+import { useServerFn } from "@tanstack/react-start";
+import { activateSubscription } from "@/lib/subscription.functions";
+import { sendCusd } from "@/lib/cusd";
+import { SUB_PLANS, TREASURY_ADDRESS, type SubPlanId } from "@/lib/contracts/registry";
 
 export const Route = createFileRoute("/subscribe")({
   component: SubscribePage,
   head: () => ({ meta: [{ title: "Get Purple Tick · Celovent" }] }),
 });
 
-const plans = [
-  { id: "daily", name: "Daily Pass", price: 0.5, period: "24 hours", desc: "Try AI for a day" },
-  { id: "monthly", name: "Monthly Creator", price: 6, period: "per month", desc: "Unlimited AI · Purple Tick", best: true },
+const plans: Array<{ id: SubPlanId; period: string; desc: string; best?: boolean }> = [
+  { id: "daily",   period: "24 hours",   desc: "Try AI for a day" },
+  { id: "monthly", period: "per month",  desc: "Unlimited AI · Purple Tick", best: true },
 ];
 
 const perks = [
@@ -24,6 +30,28 @@ const perks = [
 
 function SubscribePage() {
   const nav = useNavigate();
+  const { address } = useWallet();
+  const activate = useServerFn(activateSubscription);
+  const [paying, setPaying] = useState<SubPlanId | null>(null);
+
+  const subscribe = async (id: SubPlanId) => {
+    if (!address) return toast.error("Connect your wallet");
+    const plan = SUB_PLANS[id];
+    try {
+      setPaying(id);
+      toast(`Paying ${plan.price} cUSD…`, { description: "Confirm in your wallet" });
+      const hash = await sendCusd(address, TREASURY_ADDRESS, plan.price);
+      toast("Payment sent · activating Purple Tick…");
+      await activate({ data: { wallet: address, plan: id, txHash: hash } });
+      toast.success("🟣 Purple Tick activated!", { description: `${plan.label} · unlimited AI` });
+      setTimeout(() => nav({ to: "/profile" }), 800);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Payment failed");
+    } finally {
+      setPaying(null);
+    }
+  };
+
   return (
     <MobileShell>
       <header className="sticky top-0 z-40 px-4 py-3 bg-background/90 backdrop-blur-xl border-b border-border flex items-center gap-3">
@@ -41,41 +69,50 @@ function SubscribePage() {
           <h1 className="font-display text-3xl mt-4 -rotate-1 text-glow-purple" style={{ color: "var(--purple-tick)" }}>
             BECOME A VERIFIED<br />AI CREATOR
           </h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            Status. Speed. Unlimited chaos.
-          </p>
+          <p className="text-sm text-muted-foreground mt-2">Status. Speed. Unlimited chaos.</p>
         </div>
 
         <div className="space-y-3">
-          {plans.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => toast(`✅ Activated ${p.name}`, { description: "MiniPay tx confirmed · Purple Tick incoming" })}
-              className={`w-full text-left rounded-3xl p-5 border-2 transition-all active:scale-[0.99] ${
-                p.best
-                  ? "border-[var(--purple-tick)] bg-gradient-to-br from-[var(--purple-tick)]/15 to-[var(--neon)]/10 shadow-purple"
-                  : "border-border bg-card"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-display text-2xl">{p.name}</h2>
-                    {p.best && (
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--neon)] text-background">
-                        Best value
-                      </span>
+          {plans.map((p) => {
+            const plan = SUB_PLANS[p.id];
+            const busy = paying === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => subscribe(p.id)}
+                disabled={paying !== null}
+                className={`w-full text-left rounded-3xl p-5 border-2 transition-all active:scale-[0.99] disabled:opacity-60 ${
+                  p.best
+                    ? "border-[var(--purple-tick)] bg-gradient-to-br from-[var(--purple-tick)]/15 to-[var(--neon)]/10 shadow-purple"
+                    : "border-border bg-card"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-display text-2xl">{plan.label}</h2>
+                      {p.best && (
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--neon)] text-background">
+                          Best value
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{p.desc}</p>
+                  </div>
+                  <div className="text-right">
+                    {busy ? (
+                      <Loader2 className="w-8 h-8 animate-spin text-[var(--neon)] ml-auto" />
+                    ) : (
+                      <>
+                        <p className="font-display text-3xl text-[var(--neon)] text-glow-neon">{plan.price} cUSD</p>
+                        <p className="text-[10px] text-muted-foreground font-mono-chaos uppercase">{p.period}</p>
+                      </>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{p.desc}</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-display text-3xl text-[var(--neon)] text-glow-neon">${p.price}</p>
-                  <p className="text-[10px] text-muted-foreground font-mono-chaos uppercase">{p.period}</p>
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
 
         <div className="rounded-3xl bg-card border border-border p-5">
@@ -93,7 +130,7 @@ function SubscribePage() {
         </div>
 
         <p className="text-center text-[11px] text-muted-foreground font-mono-chaos pb-2 flex items-center justify-center gap-1">
-          <Sparkles className="w-3 h-3" /> Paid in cUSD via MiniPay · cancel anytime
+          <Sparkles className="w-3 h-3" /> Paid in cUSD via MiniPay · auto-renews manually
         </p>
       </div>
     </MobileShell>
