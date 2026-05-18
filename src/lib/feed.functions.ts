@@ -95,8 +95,8 @@ export const postMeme = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     if (data.parentId) {
-      await supabaseAdmin.rpc("execute", {}).catch(() => null);
-      await supabaseAdmin.from("memes").update({ remix_count: (await supabaseAdmin.from("memes").select("remix_count").eq("id", data.parentId).single()).data?.remix_count ?? 0 + 1 }).eq("id", data.parentId);
+      const { data: parent } = await supabaseAdmin.from("memes").select("remix_count").eq("id", data.parentId).single();
+      await supabaseAdmin.from("memes").update({ remix_count: (parent?.remix_count ?? 0) + 1 }).eq("id", data.parentId);
     }
     return { meme: row };
   });
