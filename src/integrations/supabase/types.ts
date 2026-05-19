@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      meme_box_openings: {
+        Row: {
+          box_type: string
+          created_at: string
+          id: string
+          price_cusd: number
+          reward_emoji: string
+          reward_label: string
+          reward_type: string
+          reward_value: string
+          tx_hash: string
+          wallet: string
+        }
+        Insert: {
+          box_type: string
+          created_at?: string
+          id?: string
+          price_cusd: number
+          reward_emoji?: string
+          reward_label: string
+          reward_type: string
+          reward_value: string
+          tx_hash: string
+          wallet: string
+        }
+        Update: {
+          box_type?: string
+          created_at?: string
+          id?: string
+          price_cusd?: number
+          reward_emoji?: string
+          reward_label?: string
+          reward_type?: string
+          reward_value?: string
+          tx_hash?: string
+          wallet?: string
+        }
+        Relationships: []
+      }
+      meme_likes: {
+        Row: {
+          created_at: string
+          id: string
+          meme_id: string
+          wallet: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meme_id: string
+          wallet: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meme_id?: string
+          wallet?: string
+        }
+        Relationships: []
+      }
+      meme_saves: {
+        Row: {
+          created_at: string
+          id: string
+          meme_id: string
+          wallet: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meme_id: string
+          wallet: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meme_id?: string
+          wallet?: string
+        }
+        Relationships: []
+      }
       meme_tips: {
         Row: {
           amount_cusd: number
@@ -55,41 +136,50 @@ export type Database = {
       memes: {
         Row: {
           ai_generated: boolean
+          allow_remixing: boolean
           caption: string
           created_at: string
           creator_wallet: string
           id: string
           image_url: string
           likes_count: number
+          manual_upload: boolean
           parent_id: string | null
           remix_count: number
           tags: string[]
+          tipping_enabled: boolean
           tips_total: number
         }
         Insert: {
           ai_generated?: boolean
+          allow_remixing?: boolean
           caption?: string
           created_at?: string
           creator_wallet: string
           id?: string
           image_url: string
           likes_count?: number
+          manual_upload?: boolean
           parent_id?: string | null
           remix_count?: number
           tags?: string[]
+          tipping_enabled?: boolean
           tips_total?: number
         }
         Update: {
           ai_generated?: boolean
+          allow_remixing?: boolean
           caption?: string
           created_at?: string
           creator_wallet?: string
           id?: string
           image_url?: string
           likes_count?: number
+          manual_upload?: boolean
           parent_id?: string | null
           remix_count?: number
           tags?: string[]
+          tipping_enabled?: boolean
           tips_total?: number
         }
         Relationships: [
@@ -101,6 +191,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          kind: string
+          meta: Json
+          read: boolean
+          wallet: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          kind: string
+          meta?: Json
+          read?: boolean
+          wallet: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          meta?: Json
+          read?: boolean
+          wallet?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
