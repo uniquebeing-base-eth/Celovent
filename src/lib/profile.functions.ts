@@ -33,6 +33,10 @@ export const getProfile = createServerFn({ method: "POST" })
     return { profile: row };
   });
 
+/**
+ * Source of truth: the on-chain username. If it matches, registration is real —
+ * we don't fail just because an RPC node is slow to surface the receipt.
+ */
 export const createProfile = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z
@@ -43,7 +47,7 @@ export const createProfile = createServerFn({ method: "POST" })
           .min(3)
           .max(24)
           .regex(/^[a-zA-Z0-9_.-]+$/, "Invalid username"),
-        txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+        txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional(),
         avatarUrl: z.string().url().optional(),
         bio: z.string().max(280).optional(),
       })
@@ -51,51 +55,44 @@ export const createProfile = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const registryAddress = (process.env.VITE_CELOVENT_REGISTRY_ADDRESS ||
-      DEPLOYED_REGISTRY_ADDRESS) as `0x${string}` | undefined;
-    if (!registryAddress || !isAddress(registryAddress))
-      throw new Error("Registry contract not configured");
+      DEPLOYED_REGISTRY_ADDRESS) as `0x${string}`;
 
-    // 1. Confirm the registration tx succeeded on Celo, was sent by this wallet, and targeted our registry.
-    const tx = await publicClient
-      .getTransaction({ hash: data.txHash as `0x${string}` })
-      .catch(() => null);
-    if (!tx) throw new Error("Transaction not found on Celo");
-    if (tx.from.toLowerCase() !== data.wallet.toLowerCase()) {
-      throw new Error("Transaction sender mismatch");
+    // Read on-chain username — retry a couple times to absorb RPC lag.
+    let onChainUsername = "";
+    for (let i = 0; i < 4; i++) {
+      try {
+        onChainUsername = (await publicClient.readContract({
+          address: registryAddress,
+          abi: REGISTRY_READ_ABI,
+          functionName: "usernames",
+          args: [data.wallet],
+        })) as string;
+        if (onChainUsername) break;
+      } catch {
+        /* retry */
+      }
+      await new Promise((r) => setTimeout(r, 1500));
     }
-    if (tx.to?.toLowerCase() !== registryAddress.toLowerCase()) {
-      throw new Error("Transaction registry mismatch");
+
+    if (!onChainUsername) {
+      throw new Error("On-chain username not found yet — try again in a moment");
     }
-
-    const receipt = await publicClient
-      .getTransactionReceipt({ hash: data.txHash as `0x${string}` })
-      .catch(() => null);
-    if (!receipt || receipt.status !== "success")
-      throw new Error("Registration transaction was not confirmed");
-
-    const onChainUsername = (await publicClient.readContract({
-      address: registryAddress,
-      abi: REGISTRY_READ_ABI,
-      functionName: "usernames",
-      args: [data.wallet],
-    })) as string;
     if (onChainUsername.toLowerCase() !== data.username.toLowerCase()) {
-      throw new Error("On-chain username mismatch");
+      throw new Error(`On-chain username is @${onChainUsername}, not @${data.username}`);
     }
 
-    // 2. Upsert profile (wallet stored lowercased)
     const walletLower = data.wallet.toLowerCase();
     const { data: row, error } = await supabaseAdmin
       .from("profiles")
       .upsert(
         {
           wallet_address: walletLower,
-          username: data.username,
+          username: onChainUsername,
           avatar_url:
             data.avatarUrl ??
             `https://api.dicebear.com/7.x/thumbs/svg?seed=${walletLower}&backgroundColor=a1ff3d,b794f6,fb7185,facc15`,
           bio: data.bio ?? "",
-          tx_hash: data.txHash,
+          tx_hash: data.txHash ?? null,
         },
         { onConflict: "wallet_address" },
       )
