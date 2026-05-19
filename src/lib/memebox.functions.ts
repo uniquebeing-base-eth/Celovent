@@ -146,20 +146,21 @@ export const openMemeBox = createServerFn({ method: "POST" })
       .eq("wallet_address", wallet)
       .maybeSingle();
 
-    const updates: Record<string, unknown> = {};
     if (reward.type === "ai_uses") {
-      updates.ai_uses_remaining = (profile?.ai_uses_remaining ?? 0) + Number(reward.value);
+      await supabaseAdmin
+        .from("profiles")
+        .update({ ai_uses_remaining: (profile?.ai_uses_remaining ?? 0) + Number(reward.value) })
+        .eq("wallet_address", wallet);
     } else if (reward.type === "purple_tick_days") {
       const base =
         profile?.purple_tick_expires_at && new Date(profile.purple_tick_expires_at) > new Date()
           ? new Date(profile.purple_tick_expires_at)
           : new Date();
       const expires = new Date(base.getTime() + Number(reward.value) * 86_400_000);
-      updates.purple_tick = true;
-      updates.purple_tick_expires_at = expires.toISOString();
-    }
-    if (Object.keys(updates).length) {
-      await supabaseAdmin.from("profiles").update(updates).eq("wallet_address", wallet);
+      await supabaseAdmin
+        .from("profiles")
+        .update({ purple_tick: true, purple_tick_expires_at: expires.toISOString() })
+        .eq("wallet_address", wallet);
     }
 
     await supabaseAdmin.from("notifications").insert({
