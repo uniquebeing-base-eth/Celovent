@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useWallet } from "@/hooks/use-wallet";
 import { useServerFn } from "@tanstack/react-start";
 import { activateSubscription } from "@/lib/subscription.functions";
-import { sendCusd } from "@/lib/cusd";
+import { relayPayCusd } from "@/lib/relayer";
 import { SUB_PLANS, TREASURY_ADDRESS, type SubPlanId } from "@/lib/contracts/registry";
 
 export const Route = createFileRoute("/subscribe")({
@@ -39,9 +39,15 @@ function SubscribePage() {
     const plan = SUB_PLANS[id];
     try {
       setPaying(id);
-      toast(`Paying ${plan.price} cUSD…`, { description: "Confirm in your wallet" });
-      const hash = await sendCusd(address, TREASURY_ADDRESS, plan.price);
-      toast("Payment sent · activating Purple Tick…");
+      toast(`Paying ${plan.price} cUSD…`, { description: "Approve once — relayer covers gas" });
+      const hash = await relayPayCusd({
+        from: address,
+        to: TREASURY_ADDRESS,
+        amount: plan.price,
+        interactionType: "subscription",
+        message: `plan:${id}`,
+      });
+      toast("Payment relayed · activating Purple Tick…");
       await activate({ data: { wallet: address, plan: id, txHash: hash } });
       toast.success("🟣 Purple Tick activated!", { description: `${plan.label} · unlimited AI` });
       setTimeout(() => nav({ to: "/profile" }), 800);
