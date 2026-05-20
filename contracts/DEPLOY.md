@@ -1,4 +1,4 @@
-# Deploying CeloventRegistry to Celo d854ddd30c42a6b0e6b75a9737c0bd37f7f009b8893aa5f118575319732e9c53
+# Deploying CeloventRegistry to Celo 
 
 contract : 0x86164d52CA338f2ce0bA9218135AF3a1E26E1063
 
