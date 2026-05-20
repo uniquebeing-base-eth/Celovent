@@ -6,7 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { useWallet, shortAddress } from "@/hooks/use-wallet";
-import { sendCusd } from "@/lib/cusd";
+import { relayPayCusd } from "@/lib/relayer";
 import { recordTip, toggleLike } from "@/lib/feed.functions";
 import { signAction } from "@/lib/auth-sig";
 import { publicClient } from "@/lib/wallet";
@@ -105,8 +105,15 @@ export function MemeCard({
       return toast("Can't tip yourself 😅");
     try {
       setTipping(amount);
-      const hash = await sendCusd(address, meme.creator_wallet as `0x${string}`, amount);
-      toast("💸 Tip sent", { description: `${amount} cUSD · confirming…` });
+      toast.message("Approving cUSD…", { description: "One-time, gas paid by you (cents)" });
+      const hash = await relayPayCusd({
+        from: address,
+        to: meme.creator_wallet as `0x${string}`,
+        amount,
+        interactionType: "tip",
+        message: `meme:${meme.id}`,
+      });
+      toast("💸 Tip relayed", { description: `${amount} cUSD · confirming…` });
       await publicClient.waitForTransactionReceipt({ hash }).catch(() => null);
       await record({
         data: {

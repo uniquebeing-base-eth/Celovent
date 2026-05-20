@@ -20,6 +20,8 @@ function hydrateProcessEnvFromWorkerBindings(env: unknown): void {
     "VITE_SUPABASE_URL",
     "VITE_SUPABASE_PUBLISHABLE_KEY",
     "VITE_CELOVENT_REGISTRY_ADDRESS",
+    "RELAYER_PRIVATE_KEY",
+    "LOVABLE_API_KEY",
   ];
 
   for (const key of keys) {

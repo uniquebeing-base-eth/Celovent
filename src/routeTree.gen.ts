@@ -18,6 +18,7 @@ import { Route as CreateRouteImport } from './routes/create'
 import { Route as ConnectRouteImport } from './routes/connect'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RemixIdRouteImport } from './routes/remix.$id'
+import { Route as ApiPublicRelayTipRouteImport } from './routes/api/public/relay-tip'
 
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
@@ -64,6 +65,11 @@ const RemixIdRoute = RemixIdRouteImport.update({
   path: '/remix/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicRelayTipRoute = ApiPublicRelayTipRouteImport.update({
+  id: '/api/public/relay-tip',
+  path: '/api/public/relay-tip',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/subscribe': typeof SubscribeRoute
   '/wallet': typeof WalletRoute
   '/remix/$id': typeof RemixIdRoute
+  '/api/public/relay-tip': typeof ApiPublicRelayTipRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/subscribe': typeof SubscribeRoute
   '/wallet': typeof WalletRoute
   '/remix/$id': typeof RemixIdRoute
+  '/api/public/relay-tip': typeof ApiPublicRelayTipRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/subscribe': typeof SubscribeRoute
   '/wallet': typeof WalletRoute
   '/remix/$id': typeof RemixIdRoute
+  '/api/public/relay-tip': typeof ApiPublicRelayTipRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/wallet'
     | '/remix/$id'
+    | '/api/public/relay-tip'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/wallet'
     | '/remix/$id'
+    | '/api/public/relay-tip'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/wallet'
     | '/remix/$id'
+    | '/api/public/relay-tip'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   SubscribeRoute: typeof SubscribeRoute
   WalletRoute: typeof WalletRoute
   RemixIdRoute: typeof RemixIdRoute
+  ApiPublicRelayTipRoute: typeof ApiPublicRelayTipRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RemixIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/relay-tip': {
+      id: '/api/public/relay-tip'
+      path: '/api/public/relay-tip'
+      fullPath: '/api/public/relay-tip'
+      preLoaderRoute: typeof ApiPublicRelayTipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubscribeRoute: SubscribeRoute,
   WalletRoute: WalletRoute,
   RemixIdRoute: RemixIdRoute,
+  ApiPublicRelayTipRoute: ApiPublicRelayTipRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
