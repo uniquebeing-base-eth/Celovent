@@ -30,8 +30,12 @@ export async function relayPayCusd(params: RelayPayParams): Promise<`0x${string}
     interactionType: params.interactionType ?? "tip",
     message: params.message,
     relayerUrl: RELAYER_URL,
-    walletClient: wallet,
-    publicClient,
+    // viem's chain-typed clients are structurally compatible but TS struggles
+    // with the deep generic on celo — cast to satisfy the SDK signature.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    walletClient: wallet as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    publicClient: publicClient as any,
   });
   return hash as `0x${string}`;
 }
