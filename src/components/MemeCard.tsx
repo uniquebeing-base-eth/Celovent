@@ -161,6 +161,36 @@ export function MemeCard({
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {address && address.toLowerCase() !== meme.creator_wallet.toLowerCase() && (
+            <button
+              onClick={async () => {
+                try {
+                  const sig = await signAction(address, "follow");
+                  const res = await follow({
+                    data: {
+                      follower: address,
+                      followee: meme.creator_wallet as `0x${string}`,
+                      signature: sig.signature,
+                      timestamp: sig.timestamp,
+                      action: "follow",
+                    },
+                  });
+                  setFollowing(res.following);
+                  toast.success(res.following ? `Following @${username}` : `Unfollowed @${username}`);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Follow failed");
+                }
+              }}
+              className={cn(
+                "text-[10px] font-bold px-2.5 py-1 rounded-full border transition-colors",
+                following
+                  ? "bg-muted text-muted-foreground border-border"
+                  : "bg-[var(--neon)] text-background border-transparent",
+              )}
+            >
+              {following ? "FOLLOWING" : "FOLLOW"}
+            </button>
+          )}
           {isManual && (
             <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-muted text-muted-foreground border border-border">
               📷 UPLOADED
