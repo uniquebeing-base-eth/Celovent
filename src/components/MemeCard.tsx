@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { useWallet, shortAddress } from "@/hooks/use-wallet";
 import { relayPayCusd } from "@/lib/relayer";
-import { recordTip, toggleLike } from "@/lib/feed.functions";
+import { recordTip, toggleFollow, toggleLike } from "@/lib/feed.functions";
 import { signAction } from "@/lib/auth-sig";
 import { publicClient } from "@/lib/wallet";
 
