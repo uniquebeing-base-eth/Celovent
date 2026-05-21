@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      follows: {
+        Row: {
+          created_at: string
+          followee_wallet: string
+          follower_wallet: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          followee_wallet: string
+          follower_wallet: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          followee_wallet?: string
+          follower_wallet?: string
+          id?: string
+        }
+        Relationships: []
+      }
       meme_box_openings: {
         Row: {
           box_type: string
