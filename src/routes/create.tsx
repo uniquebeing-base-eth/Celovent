@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { MobileShell } from "@/components/MobileShell";
-import { ArrowLeft, Coins, Sparkles, Image as ImageIcon, Wand2, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Coins, Sparkles, Image as ImageIcon, Wand2, Loader2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useWallet } from "@/hooks/use-wallet";
 import { useServerFn } from "@tanstack/react-start";
-import { generateMeme, getAiQuota } from "@/lib/ai.functions";
+import { generateMeme, getAiQuota, uploadMemeImage } from "@/lib/ai.functions";
 import { postMeme } from "@/lib/feed.functions";
 import { signAction } from "@/lib/auth-sig";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +32,7 @@ function CreatePage() {
   const { balance } = useMe();
   const qc = useQueryClient();
   const gen = useServerFn(generateMeme);
+  const upload = useServerFn(uploadMemeImage);
   const post = useServerFn(postMeme);
   const quotaFn = useServerFn(getAiQuota);
 
@@ -41,13 +42,25 @@ function CreatePage() {
   const [posting, setPosting] = useState(false);
   const [generated, setGenerated] = useState<string | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedPreview, setSelectedPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [manualUploadReady, setManualUploadReady] = useState(false);
+
   const { data: quota, refetch: refetchQuota } = useQuery({
     queryKey: ["ai-quota", address],
     queryFn: () => quotaFn({ data: { wallet: address! } }),
     enabled: !!address,
   });
-  const usesLeft = quota?.remaining ?? 0;
+  const usesLeft = typeof quota?.remaining === "number" ? quota.remaining : 2;
   const purple = quota?.purpleTick ?? false;
+
+  useEffect(() => {
+    return () => {
+      if (selectedPreview) URL.revokeObjectURL(selectedPreview);
+    };
+  }, [selectedPreview]);
 
   const generate = async () => {
     if (!address) return toast.error("Connect your wallet");
@@ -59,14 +72,43 @@ function CreatePage() {
     try {
       setGenerating(true);
       setGenerated(null);
+      setManualUploadReady(false);
       const sig = await signAction(address, "ai_generate");
       const res = await gen({ data: { wallet: address, prompt: text, style, signature: sig.signature, timestamp: sig.timestamp, action: "ai_generate" } });
       setGenerated(res.imageUrl);
+      setSelectedFile(null);
+      setSelectedPreview(null);
       refetchQuota();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!address) return toast.error("Connect your wallet");
+    if (!selectedFile) return toast.error("Pick an image first");
+    try {
+      setUploading(true);
+      const sig = await signAction(address, "upload_meme");
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Unable to read file"));
+        reader.readAsDataURL(selectedFile);
+      });
+      const res = await uploadMemeImage({ data: { wallet: address, dataUrl, signature: sig.signature, timestamp: sig.timestamp, action: "upload_meme" } });
+      setGenerated(res.imageUrl);
+      setSelectedFile(null);
+      setSelectedPreview(null);
+      setManualUploadReady(true);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      toast.success("Uploaded! Ready to post.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -80,8 +122,11 @@ function CreatePage() {
         imageUrl: generated,
         caption: text,
         tags: [],
-        aiGenerated: true,
-        signature: sig.signature, timestamp: sig.timestamp, action: "post_meme",
+        aiGenerated: !manualUploadReady,
+        manualUpload: manualUploadReady,
+        signature: sig.signature,
+        timestamp: sig.timestamp,
+        action: "post_meme",
       } });
       toast.success("Posted! 🚀");
       qc.invalidateQueries({ queryKey: ["feed"] });
@@ -139,6 +184,54 @@ function CreatePage() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="rounded-3xl border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Upload className="w-4 h-4 text-[var(--neon)]" />
+            Upload your own meme
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="w-full rounded-2xl border border-border bg-background p-3 text-sm file:cursor-pointer file:border-0 file:bg-[var(--neon)] file:px-3 file:py-2 file:text-background file:font-semibold"
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              setSelectedFile(file);
+              setManualUploadReady(false);
+              if (file) {
+                if (!file.type.startsWith("image/")) {
+                  toast.error("Please select an image file");
+                  setSelectedFile(null);
+                  setSelectedPreview(null);
+                  return;
+                }
+                if (file.size > 8 * 1024 * 1024) {
+                  toast.error("Image must be under 8MB");
+                  setSelectedFile(null);
+                  setSelectedPreview(null);
+                  return;
+                }
+                setSelectedPreview(URL.createObjectURL(file));
+              } else {
+                setSelectedPreview(null);
+              }
+            }}
+          />
+          {selectedPreview && (
+            <div className="rounded-2xl overflow-hidden border border-border">
+              <img src={selectedPreview} alt="Selected" className="w-full object-cover" />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={uploadImage}
+            disabled={!selectedFile || uploading}
+            className="w-full rounded-2xl bg-[var(--neon)] text-background py-3.5 font-extrabold text-sm shadow-neon disabled:opacity-50"
+          >
+            {uploading ? "Uploading…" : "Upload Image"}
+          </button>
         </div>
 
         <div>
