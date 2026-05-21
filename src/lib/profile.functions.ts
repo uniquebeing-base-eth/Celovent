@@ -82,51 +82,29 @@ export const createProfile = createServerFn({ method: "POST" })
     }
 
     const walletLower = data.wallet.toLowerCase();
-    const profileData = {
-      wallet_address: walletLower,
-      username: onChainUsername,
-      avatar_url:
-        data.avatarUrl ??
-        `https://api.dicebear.com/7.x/thumbs/svg?seed=${walletLower}&backgroundColor=a1ff3d,b794f6,fb7185,facc15`,
-      bio: data.bio ?? "",
-      tx_hash: data.txHash ?? null,
-    };
-
-    const { data: existing } = await supabaseAdmin
+    const { data: row, error } = await supabaseAdmin
       .from("profiles")
-      .select("wallet_address")
-      .eq("wallet_address", walletLower)
-      .maybeSingle();
-
-    let row;
-    if (existing) {
-      const { data: updated, error } = await supabaseAdmin
-        .from("profiles")
-        .update(profileData)
-        .eq("wallet_address", walletLower)
-        .select()
-        .single();
-      if (error) {
-        throw new Error(error.message);
-      }
-      row = updated;
-    } else {
-      const { data: inserted, error } = await supabaseAdmin
-        .from("profiles")
-        .insert({
-          ...profileData,
-          ai_uses_remaining: 2,
-          purple_tick: false,
-          purple_tick_expires_at: null,
-        })
-        .select()
-        .single();
-      if (error) {
-        if (error.code === "23505") throw new Error("Username already taken");
-        throw new Error(error.message);
-      }
-      row = inserted;
+      .upsert(
+        {
+          wallet_address: walletLower,
+          username: onChainUsername,
+          avatar_url:
+            data.avatarUrl ??
+            `https://api.dicebear.com/7.x/thumbs/svg?seed=${walletLower}&backgroundColor=a1ff3d,b794f6,fb7185,facc15`,
+          bio: data.bio ?? "",
+          tx_hash: data.txHash ?? null,
+        },
+        { onConflict: "wallet_address" },
+      )
+      .select()
+      .single();
+    if (error) {
+      if (error.code === "23505") throw new Error("Username already taken");
+      throw new Error(error.message);
     }
+
+    return { profile: row };
+  });
 
     return { profile: row };
   });

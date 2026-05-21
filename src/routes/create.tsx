@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { MobileShell } from "@/components/MobileShell";
-import { ArrowLeft, Coins, Sparkles, Image as ImageIcon, Wand2, Loader2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { ArrowLeft, Coins, Sparkles, Image as ImageIcon, Wand2, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useWallet } from "@/hooks/use-wallet";
@@ -44,16 +44,21 @@ function CreatePage() {
   const [style, setStyle] = useState("auto");
   const [generating, setGenerating] = useState(false);
   const [posting, setPosting] = useState(false);
-  const [image, setImage] = useState<string | null>(null);
-  const [uploaded, setUploaded] = useState(false); // image came from manual upload
+  const [generated, setGenerated] = useState<string | null>(null);
 
   const { data: quota, refetch: refetchQuota } = useQuery({
     queryKey: ["ai-quota", address],
     queryFn: () => quotaFn({ data: { wallet: address! } }),
     enabled: !!address && mode === "ai",
   });
-  const usesLeft = quota?.remaining ?? 0;
+  const usesLeft = typeof quota?.remaining === "number" ? quota.remaining : 2;
   const purple = quota?.purpleTick ?? false;
+
+  useEffect(() => {
+    return () => {
+      if (selectedPreview) URL.revokeObjectURL(selectedPreview);
+    };
+  }, [selectedPreview]);
 
   const generate = async () => {
     if (!address) return toast.error("Connect your wallet");
@@ -64,57 +69,13 @@ function CreatePage() {
     }
     try {
       setGenerating(true);
-      setImage(null);
+      setGenerated(null);
       const sig = await signAction(address, "ai_generate");
-      const res = await gen({
-        data: {
-          wallet: address,
-          prompt: text,
-          style,
-          signature: sig.signature,
-          timestamp: sig.timestamp,
-          action: "ai_generate",
-        },
-      });
-      setImage(res.imageUrl);
-      setUploaded(false);
+      const res = await gen({ data: { wallet: address, prompt: text, style, signature: sig.signature, timestamp: sig.timestamp, action: "ai_generate" } });
+      setGenerated(res.imageUrl);
       refetchQuota();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed");
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const pickFile = () => fileRef.current?.click();
-
-  const handleFile = async (file: File) => {
-    if (!address) return toast.error("Connect your wallet");
-    if (!file.type.startsWith("image/")) return toast.error("Pick an image file");
-    if (file.size > 8 * 1024 * 1024) return toast.error("Max 8MB");
-    try {
-      setGenerating(true);
-      setImage(null);
-      const dataUrl: string = await new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(String(r.result));
-        r.onerror = () => reject(new Error("Read failed"));
-        r.readAsDataURL(file);
-      });
-      const sig = await signAction(address, "upload_meme");
-      const res = await upload({
-        data: {
-          wallet: address,
-          dataUrl,
-          signature: sig.signature,
-          timestamp: sig.timestamp,
-          action: "upload_meme",
-        },
-      });
-      setImage(res.imageUrl);
-      setUploaded(true);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setGenerating(false);
     }
@@ -125,19 +86,14 @@ function CreatePage() {
     try {
       setPosting(true);
       const sig = await signAction(address, "post_meme");
-      await post({
-        data: {
-          wallet: address,
-          imageUrl: image,
-          caption: text,
-          tags: [],
-          aiGenerated: !uploaded,
-          manualUpload: uploaded,
-          signature: sig.signature,
-          timestamp: sig.timestamp,
-          action: "post_meme",
-        },
-      });
+      await post({ data: {
+        wallet: address,
+        imageUrl: generated,
+        caption: text,
+        tags: [],
+        aiGenerated: true,
+        signature: sig.signature, timestamp: sig.timestamp, action: "post_meme",
+      } });
       toast.success("Posted! 🚀");
       qc.invalidateQueries({ queryKey: ["feed"] });
       nav({ to: "/" });
@@ -205,32 +161,28 @@ function CreatePage() {
           <div className="text-right text-[11px] text-muted-foreground font-mono-chaos">{text.length}/200</div>
         </div>
 
-        {mode === "ai" && (
-          <div>
-            <h2 className="text-sm font-semibold flex items-center gap-1.5 mb-2">
-              <Sparkles className="w-4 h-4 text-[var(--purple-tick)]" /> AI Style
-            </h2>
-            <div className="grid grid-cols-4 gap-2">
-              {styles.slice(0, 4).map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setStyle(s.id)}
-                  className={cn(
-                    "rounded-2xl aspect-square grid place-items-center text-3xl transition-all",
-                    style === s.id
-                      ? "bg-[var(--neon)] text-background shadow-neon scale-105"
-                      : "bg-card border border-border",
-                  )}
-                >
-                  <div className="text-center">
-                    <div>{s.emoji}</div>
-                    <div className="text-[10px] font-bold mt-1">{s.label}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
+        <div>
+          <h2 className="text-sm font-semibold flex items-center gap-1.5 mb-2">
+            <Sparkles className="w-4 h-4 text-[var(--purple-tick)]" /> AI Style
+          </h2>
+          <div className="grid grid-cols-4 gap-2">
+            {styles.slice(0, 4).map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setStyle(s.id)}
+                className={cn(
+                  "rounded-2xl aspect-square grid place-items-center text-3xl transition-all",
+                  style === s.id ? "bg-[var(--neon)] text-background shadow-neon scale-105" : "bg-card border border-border",
+                )}
+              >
+                <div className="text-center">
+                  <div>{s.emoji}</div>
+                  <div className="text-[10px] font-bold mt-1">{s.label}</div>
+                </div>
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
         <div>
           <h2 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
