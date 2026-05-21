@@ -105,6 +105,3 @@ export const createProfile = createServerFn({ method: "POST" })
 
     return { profile: row };
   });
-
-    return { profile: row };
-  });
