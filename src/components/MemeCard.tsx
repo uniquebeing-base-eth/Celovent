@@ -59,9 +59,11 @@ export function MemeCard({
   const [likeCount, setLikeCount] = useState(meme.likes_count);
   const [saved, setSaved] = useState(false);
   const [tipping, setTipping] = useState<number | null>(null);
+  const [following, setFollowing] = useState(false);
   const { address } = useWallet();
   const record = useServerFn(recordTip);
   const like = useServerFn(toggleLike);
+  const follow = useServerFn(toggleFollow);
 
   const username = profile?.username ?? "anon";
   const avatar =
