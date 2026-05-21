@@ -46,13 +46,33 @@ const MEME_COLS =
 
 // ──────────────── Feed ────────────────
 export const getFeed = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ limit: z.number().min(1).max(50).default(30) }).parse(input ?? {}))
+  .inputValidator((input) =>
+    z
+      .object({
+        limit: z.number().min(1).max(50).default(30),
+        follower: ADDRESS.optional(),
+      })
+      .parse(input ?? {}),
+  )
   .handler(async ({ data }) => {
-    const { data: rows, error } = await supabaseAdmin
+    let creatorFilter: string[] | null = null;
+    if (data.follower) {
+      const { data: follows } = await supabaseAdmin
+        .from("follows")
+        .select("followee_wallet")
+        .eq("follower_wallet", data.follower.toLowerCase());
+      creatorFilter = (follows ?? []).map((f) => f.followee_wallet);
+      if (creatorFilter.length === 0) return { memes: [], profiles: [] };
+    }
+
+    let q = supabaseAdmin
       .from("memes")
       .select(MEME_COLS)
       .order("created_at", { ascending: false })
       .limit(data.limit);
+    if (creatorFilter) q = q.in("creator_wallet", creatorFilter);
+
+    const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
     const wallets = Array.from(new Set((rows ?? []).map((r) => r.creator_wallet)));
     const { data: profiles } = wallets.length
@@ -68,6 +88,60 @@ export const getFeed = createServerFn({ method: "POST" })
           purple_tick_expires_at: string | null;
         }> };
     return { memes: rows ?? [], profiles: profiles ?? [] };
+  });
+
+// ──────────────── Follows ────────────────
+export const toggleFollow = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({
+        follower: ADDRESS,
+        followee: ADDRESS,
+        signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
+        timestamp: z.number().int(),
+        action: z.literal("follow"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireSignedAction({
+      wallet: data.follower,
+      signature: data.signature as `0x${string}`,
+      timestamp: data.timestamp,
+      action: data.action,
+    });
+    const follower = data.follower.toLowerCase();
+    const followee = data.followee.toLowerCase();
+    if (follower === followee) throw new Error("Can't follow yourself");
+
+    const { data: existing } = await supabaseAdmin
+      .from("follows")
+      .select("id")
+      .eq("follower_wallet", follower)
+      .eq("followee_wallet", followee)
+      .maybeSingle();
+    if (existing) {
+      await supabaseAdmin.from("follows").delete().eq("id", existing.id);
+      return { following: false };
+    }
+    await supabaseAdmin.from("follows").insert({ follower_wallet: follower, followee_wallet: followee });
+    await supabaseAdmin.from("notifications").insert({
+      wallet: followee,
+      kind: "follow",
+      body: `${follower.slice(0, 6)}…${follower.slice(-4)} followed you`,
+      meta: { follower },
+    });
+    return { following: true };
+  });
+
+export const getMyFollowing = createServerFn({ method: "POST" })
+  .inputValidator((input) => z.object({ wallet: ADDRESS }).parse(input))
+  .handler(async ({ data }) => {
+    const { data: rows } = await supabaseAdmin
+      .from("follows")
+      .select("followee_wallet")
+      .eq("follower_wallet", data.wallet.toLowerCase());
+    return { followees: (rows ?? []).map((r) => r.followee_wallet) };
   });
 
 export const getMeme = createServerFn({ method: "POST" })
