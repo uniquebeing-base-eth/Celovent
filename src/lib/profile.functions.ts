@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createPublicClient, http, isAddress, getAddress } from "viem";
 import { celo } from "viem/chains";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSignedAction } from "@/lib/feed.functions";
 
 const publicClient = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
 const DEPLOYED_REGISTRY_ADDRESS = "0x86164d52CA338f2ce0bA9218135AF3a1E26E1063" as const;
@@ -30,6 +31,63 @@ export const getProfile = createServerFn({ method: "POST" })
       .eq("wallet_address", data.wallet.toLowerCase())
       .maybeSingle();
     if (error) throw new Error(error.message);
+    return { profile: row };
+  });
+
+export const claimUsername = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({
+        wallet: ADDRESS,
+        username: z
+          .string()
+          .min(3)
+          .max(24)
+          .regex(/^[a-zA-Z0-9_.-]+$/, "Invalid username"),
+        signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
+        timestamp: z.number().int(),
+        action: z.literal("claim_username"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireSignedAction({
+      wallet: data.wallet,
+      signature: data.signature as `0x${string}`,
+      timestamp: data.timestamp,
+      action: data.action,
+    });
+
+    const walletLower = data.wallet.toLowerCase();
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("profiles")
+      .select("username")
+      .eq("wallet_address", walletLower)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    if (existing) {
+      return { profile: existing };
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from("profiles")
+      .insert({
+        wallet_address: walletLower,
+        username: data.username,
+        avatar_url: `https://api.dicebear.com/7.x/thumbs/svg?seed=${walletLower}&backgroundColor=a1ff3d,b794f6,fb7185,facc15`,
+        bio: "",
+        verified: false,
+        purple_tick: false,
+        balance_cusd: 0,
+        ai_uses_remaining: 2,
+      })
+      .select()
+      .single();
+    if (error) {
+      if (error.code === "23505") throw new Error("Username already taken");
+      throw new Error(error.message);
+    }
+
     return { profile: row };
   });
 
