@@ -1,25 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { createPublicClient, http, isAddress, getAddress } from "viem";
-import { celo } from "viem/chains";
+import { isAddress, getAddress } from "viem";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
-const publicClient = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
-const DEPLOYED_REGISTRY_ADDRESS = "0x86164d52CA338f2ce0bA9218135AF3a1E26E1063" as const;
+import { requireSignedAction } from "@/lib/feed.functions";
 
 const ADDRESS = z
   .string()
   .refine(isAddress, "Invalid address")
   .transform((v) => getAddress(v));
-const REGISTRY_READ_ABI = [
-  {
-    type: "function",
-    name: "usernames",
-    stateMutability: "view",
-    inputs: [{ name: "", type: "address" }],
-    outputs: [{ name: "", type: "string" }],
-  },
-] as const;
 
 export const getProfile = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ wallet: ADDRESS }).parse(input))
@@ -34,10 +22,11 @@ export const getProfile = createServerFn({ method: "POST" })
   });
 
 /**
- * Source of truth: the on-chain username. If it matches, registration is real —
- * we don't fail just because an RPC node is slow to surface the receipt.
+ * Off-chain username claim, gated by a wallet signature.
+ * No gas required — users can enter the app even with cUSD-only MiniPay balances.
+ * Username uniqueness is enforced by the case-insensitive unique index.
  */
-export const createProfile = createServerFn({ method: "POST" })
+export const claimUsername = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z
       .object({
@@ -47,55 +36,39 @@ export const createProfile = createServerFn({ method: "POST" })
           .min(3)
           .max(24)
           .regex(/^[a-zA-Z0-9_.-]+$/, "Invalid username"),
-        txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional(),
-        avatarUrl: z.string().url().optional(),
         bio: z.string().max(280).optional(),
+        signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
+        timestamp: z.number().int(),
+        action: z.literal("claim_username"),
       })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const registryAddress = (process.env.VITE_CELOVENT_REGISTRY_ADDRESS ||
-      DEPLOYED_REGISTRY_ADDRESS) as `0x${string}`;
-
-    // Read on-chain username — retry a couple times to absorb RPC lag.
-    let onChainUsername = "";
-    for (let i = 0; i < 4; i++) {
-      try {
-        onChainUsername = (await publicClient.readContract({
-          address: registryAddress,
-          abi: REGISTRY_READ_ABI,
-          functionName: "usernames",
-          args: [data.wallet],
-        })) as string;
-        if (onChainUsername) break;
-      } catch {
-        /* retry */
-      }
-      await new Promise((r) => setTimeout(r, 1500));
-    }
-
-    if (!onChainUsername) {
-      throw new Error("On-chain username not found yet — try again in a moment");
-    }
-    if (onChainUsername.toLowerCase() !== data.username.toLowerCase()) {
-      throw new Error(`On-chain username is @${onChainUsername}, not @${data.username}`);
-    }
+    await requireSignedAction({
+      wallet: data.wallet,
+      signature: data.signature as `0x${string}`,
+      timestamp: data.timestamp,
+      action: data.action,
+    });
 
     const walletLower = data.wallet.toLowerCase();
+
+    // If this wallet already has a profile, return it (idempotent).
+    const { data: existing } = await supabaseAdmin
+      .from("profiles")
+      .select("*")
+      .eq("wallet_address", walletLower)
+      .maybeSingle();
+    if (existing) return { profile: existing };
+
     const { data: row, error } = await supabaseAdmin
       .from("profiles")
-      .upsert(
-        {
-          wallet_address: walletLower,
-          username: onChainUsername,
-          avatar_url:
-            data.avatarUrl ??
-            `https://api.dicebear.com/7.x/thumbs/svg?seed=${walletLower}&backgroundColor=a1ff3d,b794f6,fb7185,facc15`,
-          bio: data.bio ?? "",
-          tx_hash: data.txHash ?? null,
-        },
-        { onConflict: "wallet_address" },
-      )
+      .insert({
+        wallet_address: walletLower,
+        username: data.username,
+        avatar_url: `https://api.dicebear.com/7.x/thumbs/svg?seed=${walletLower}&backgroundColor=a1ff3d,b794f6,fb7185,facc15`,
+        bio: data.bio ?? "",
+      })
       .select()
       .single();
     if (error) {
