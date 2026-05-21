@@ -19,6 +19,7 @@ function hydrateProcessEnvFromWorkerBindings(env: unknown): void {
     "SUPABASE_SERVICE_ROLE_KEY",
     "VITE_SUPABASE_URL",
     "VITE_SUPABASE_PUBLISHABLE_KEY",
+    "VITE_SUPABASE_SERVICE_ROLE_KEY",
     "VITE_CELOVENT_REGISTRY_ADDRESS",
     "RELAYER_PRIVATE_KEY",
     "LOVABLE_API_KEY",
@@ -33,6 +34,7 @@ function hydrateProcessEnvFromWorkerBindings(env: unknown): void {
 
   process.env.SUPABASE_URL ??= process.env.VITE_SUPABASE_URL;
   process.env.SUPABASE_PUBLISHABLE_KEY ??= process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??= process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 }
 
 async function getServerEntry(): Promise<ServerEntry> {
