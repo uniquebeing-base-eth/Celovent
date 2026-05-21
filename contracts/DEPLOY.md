@@ -1,5 +1,5 @@
 # Deploying CeloventRegistry to Celo 
-d854ddd30c42a6b0e6b75a9737c0bd37f7f009b8893aa5f118575319732e9c53
+
 contract : 0x86164d52CA338f2ce0bA9218135AF3a1E26E1063
 
 You need ~0.05 CELO (~$0.02) in a wallet with the Celo network added.
