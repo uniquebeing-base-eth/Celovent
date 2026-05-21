@@ -9,6 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getFeed } from "@/lib/feed.functions";
 import { Loader2, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { useWallet } from "@/hooks/use-wallet";
 
 export const Route = createFileRoute("/")({
   component: Index,
