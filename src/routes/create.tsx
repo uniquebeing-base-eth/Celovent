@@ -52,8 +52,14 @@ function CreatePage() {
     queryFn: () => quotaFn({ data: { wallet: address! } }),
     enabled: !!address && mode === "ai",
   });
-  const usesLeft = quota?.remaining ?? 0;
+  const usesLeft = typeof quota?.remaining === "number" ? quota.remaining : 2;
   const purple = quota?.purpleTick ?? false;
+
+  useEffect(() => {
+    return () => {
+      if (selectedPreview) URL.revokeObjectURL(selectedPreview);
+    };
+  }, [selectedPreview]);
 
   const generate = async () => {
     if (!address) return toast.error("Connect your wallet");

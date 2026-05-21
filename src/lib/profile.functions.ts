@@ -75,5 +75,6 @@ export const claimUsername = createServerFn({ method: "POST" })
       if (error.code === "23505") throw new Error("Username already taken");
       throw new Error(error.message);
     }
+
     return { profile: row };
   });
