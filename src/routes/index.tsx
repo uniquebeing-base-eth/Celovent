@@ -23,9 +23,13 @@ export const Route = createFileRoute("/")({
 function Index() {
   const [tab, setTab] = useState<"foryou" | "following">("foryou");
   const fetchFeed = useServerFn(getFeed);
+  const { address } = useWallet();
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["feed"],
-    queryFn: () => fetchFeed({ data: { limit: 30 } }),
+    queryKey: ["feed", tab, address ?? null],
+    queryFn: () =>
+      fetchFeed({
+        data: tab === "following" && address ? { limit: 30, follower: address } : { limit: 30 },
+      }),
     refetchOnWindowFocus: false,
   });
 
