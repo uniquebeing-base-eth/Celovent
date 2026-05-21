@@ -3,12 +3,9 @@ import { useEffect, useState } from "react";
 import { Loader2, Wallet, Sparkles } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { writeContract, waitForTransactionReceipt, readContract } from "viem/actions";
-import { celo } from "viem/chains";
 import { useWallet, shortAddress } from "@/hooks/use-wallet";
-import { getWalletClient, publicClient } from "@/lib/wallet";
-import { REGISTRY_ABI, REGISTRY_ADDRESS } from "@/lib/contracts/registry";
-import { createProfile, getProfile } from "@/lib/profile.functions";
+import { claimUsername, getProfile } from "@/lib/profile.functions";
+import { signAction } from "@/lib/auth-sig";
 import { Logo } from "@/components/Logo";
 
 export const Route = createFileRoute("/connect")({
@@ -16,129 +13,59 @@ export const Route = createFileRoute("/connect")({
   head: () => ({ meta: [{ title: "Connect · Celovent" }] }),
 });
 
-type PendingRegistration = { username: string; txHash: `0x${string}` };
-
-function pendingRegistrationKey(wallet: string) {
-  return `celovent.registration.${wallet.toLowerCase()}`;
-}
-
-function readPendingRegistration(wallet: string): PendingRegistration | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const parsed = JSON.parse(
-      localStorage.getItem(pendingRegistrationKey(wallet)) ?? "null",
-    ) as PendingRegistration | null;
-    if (!parsed?.username || !/^0x[a-fA-F0-9]{64}$/.test(parsed.txHash)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writePendingRegistration(wallet: string, pending: PendingRegistration) {
-  localStorage.setItem(pendingRegistrationKey(wallet), JSON.stringify(pending));
-}
-
-function clearPendingRegistration(wallet: string) {
-  localStorage.removeItem(pendingRegistrationKey(wallet));
-}
-
 function ConnectPage() {
   const { address, isConnected, isMiniPay, connecting, connect } = useWallet();
   const navigate = useNavigate();
   const fetchProfile = useServerFn(getProfile);
-  const saveProfile = useServerFn(createProfile);
+  const claim = useServerFn(claimUsername);
 
   const [username, setUsername] = useState("");
-  const [step, setStep] = useState<"idle" | "checking" | "tx" | "saving">("idle");
-  const [onChainName, setOnChainName] = useState<string | null>(null);
+  const [step, setStep] = useState<"idle" | "checking" | "claiming">("idle");
+  const [alreadyClaimed, setAlreadyClaimed] = useState<string | null>(null);
 
   useEffect(() => {
     if (!address) return;
-    if (!REGISTRY_ADDRESS) return;
     setStep("checking");
     (async () => {
       try {
-        const name = (await readContract(publicClient, {
-          address: REGISTRY_ADDRESS,
-          abi: REGISTRY_ABI,
-          functionName: "usernames",
-          args: [address],
-        })) as string;
-        setOnChainName(name || null);
-        if (name) {
-          // Already registered on-chain — make sure DB row exists, then go home
-          const { profile } = await fetchProfile({ data: { wallet: address } });
-          if (profile) {
-            navigate({ to: "/" });
-            return;
-          }
-
-          const pending = readPendingRegistration(address);
-          if (pending && pending.username.toLowerCase() === name.toLowerCase()) {
-            setStep("saving");
-            await saveProfile({
-              data: { wallet: address, username: name, txHash: pending.txHash },
-            });
-            clearPendingRegistration(address);
-            toast.success(`@${name} profile synced`);
-            navigate({ to: "/" });
-            return;
-          }
+        const { profile } = await fetchProfile({ data: { wallet: address } });
+        if (profile?.username) {
+          setAlreadyClaimed(profile.username);
+          navigate({ to: "/" });
         }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Could not check registration";
-        toast.error(msg.length > 140 ? "Could not check registration" : msg);
+      } catch {
+        /* ignore */
       } finally {
         setStep("idle");
       }
     })();
-  }, [address, fetchProfile, navigate, saveProfile]);
+  }, [address, fetchProfile, navigate]);
 
-  async function handleRegister() {
+  async function handleClaim() {
     if (!address) return;
-    if (!REGISTRY_ADDRESS) {
-      toast.error(
-        "Registry contract not configured. Deploy CeloventRegistry.sol and set VITE_CELOVENT_REGISTRY_ADDRESS.",
-      );
-      return;
-    }
-    const wc = getWalletClient();
-    if (!wc) {
-      toast.error("No wallet detected");
-      return;
-    }
     const clean = username.trim();
     if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(clean)) {
       toast.error("Username must be 3-24 chars: letters, numbers, . _ -");
       return;
     }
-
     try {
-      setStep("tx");
-      toast.message("Confirm in your wallet…");
-      const hash = await writeContract(wc, {
-        account: address,
-        chain: celo,
-        address: REGISTRY_ADDRESS,
-        abi: REGISTRY_ABI,
-        functionName: "registerUser",
-        args: [clean],
+      setStep("claiming");
+      toast.message("Sign to claim your handle…", { description: "No gas, just a signature" });
+      const sig = await signAction(address, "claim_username");
+      await claim({
+        data: {
+          wallet: address,
+          username: clean,
+          signature: sig.signature,
+          timestamp: sig.timestamp,
+          action: "claim_username",
+        },
       });
-      writePendingRegistration(address, { username: clean, txHash: hash });
-      toast.message("Waiting for confirmation…");
-      await waitForTransactionReceipt(publicClient, { hash });
-
-      setStep("saving");
-      await saveProfile({
-        data: { wallet: address, username: clean, txHash: hash },
-      });
-      clearPendingRegistration(address);
-      toast.success(`@${clean} claimed on-chain`);
+      toast.success(`@${clean} claimed`);
       navigate({ to: "/" });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Registration failed";
-      toast.error(msg.length > 140 ? "Registration failed" : msg);
+      const msg = e instanceof Error ? e.message : "Claim failed";
+      toast.error(msg.length > 140 ? "Claim failed" : msg);
     } finally {
       setStep("idle");
     }
@@ -150,10 +77,7 @@ function ConnectPage() {
         <div className="flex justify-center">
           <Logo />
         </div>
-        <h1
-          className="font-display text-4xl text-center -rotate-1"
-          style={{ color: "var(--neon)" }}
-        >
+        <h1 className="font-display text-4xl text-center -rotate-1" style={{ color: "var(--neon)" }}>
           ENTER THE CHAOS
         </h1>
 
@@ -163,11 +87,7 @@ function ConnectPage() {
             disabled={connecting}
             className="w-full rounded-2xl bg-foreground text-background font-bold py-4 flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50"
           >
-            {connecting ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Wallet className="w-5 h-5" />
-            )}
+            {connecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wallet className="w-5 h-5" />}
             {isMiniPay ? "Connecting MiniPay…" : "Connect Wallet"}
           </button>
         ) : (
@@ -184,12 +104,12 @@ function ConnectPage() {
 
             {step === "checking" ? (
               <p className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" /> Checking registration…
+                <Loader2 className="w-4 h-4 animate-spin" /> Checking profile…
               </p>
-            ) : onChainName ? (
+            ) : alreadyClaimed ? (
               <div className="text-center space-y-3">
                 <p className="text-sm">
-                  Already registered as <span className="font-bold">@{onChainName}</span>
+                  Already claimed as <span className="font-bold">@{alreadyClaimed}</span>
                 </p>
                 <button
                   onClick={() => navigate({ to: "/" })}
@@ -201,9 +121,7 @@ function ConnectPage() {
             ) : (
               <div className="space-y-3">
                 <label className="block">
-                  <span className="text-xs font-mono-chaos text-muted-foreground">
-                    PICK YOUR HANDLE
-                  </span>
+                  <span className="text-xs font-mono-chaos text-muted-foreground">PICK YOUR HANDLE</span>
                   <input
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -213,33 +131,22 @@ function ConnectPage() {
                   />
                 </label>
                 <button
-                  onClick={handleRegister}
+                  onClick={handleClaim}
                   disabled={step !== "idle" || !username.trim()}
                   className="w-full rounded-2xl gradient-celo text-background font-bold py-4 flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  {step === "tx" && <Loader2 className="w-5 h-5 animate-spin" />}
-                  {step === "saving" && <Loader2 className="w-5 h-5 animate-spin" />}
-                  {step === "idle" && <Sparkles className="w-5 h-5" />}
-                  {step === "tx"
-                    ? "Signing tx…"
-                    : step === "saving"
-                      ? "Creating profile…"
-                      : "Claim on-chain"}
+                  {step === "claiming" ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-5 h-5" />
+                  )}
+                  {step === "claiming" ? "Claiming…" : "Claim handle"}
                 </button>
                 <p className="text-[11px] text-muted-foreground font-mono-chaos text-center">
-                  one-time · ~$0.01 cUSD gas · stored on Celo mainnet
+                  free · signature only · no gas required
                 </p>
               </div>
             )}
-          </div>
-        )}
-
-        {!REGISTRY_ADDRESS && (
-          <div className="rounded-xl border border-[var(--hot)]/40 bg-[var(--hot)]/10 p-3 text-xs">
-            <strong>Setup required:</strong> deploy <code>contracts/CeloventRegistry.sol</code> and
-            set
-            <code className="mx-1">VITE_CELOVENT_REGISTRY_ADDRESS</code>. See{" "}
-            <code>contracts/DEPLOY.md</code>.
           </div>
         )}
       </div>
