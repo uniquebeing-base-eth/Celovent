@@ -70,10 +70,19 @@ function Index() {
         {!isLoading && (data?.memes.length ?? 0) === 0 && (
           <div className="rounded-3xl border border-border bg-card p-8 text-center">
             <Sparkles className="w-10 h-10 text-[var(--neon)] mx-auto mb-3" />
-            <p className="font-display text-xl">No memes yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Be the first to drop one.</p>
-            <Link to="/create" className="inline-block mt-4 px-5 py-2.5 rounded-full bg-[var(--neon)] text-background font-extrabold text-sm shadow-neon">
-              Create a meme ✨
+            <p className="font-display text-xl">
+              {tab === "following" ? "No follows yet" : "No memes yet"}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {tab === "following"
+                ? "Follow creators on Explore to fill your feed."
+                : "Be the first to drop one."}
+            </p>
+            <Link
+              to={tab === "following" ? "/explore" : "/create"}
+              className="inline-block mt-4 px-5 py-2.5 rounded-full bg-[var(--neon)] text-background font-extrabold text-sm shadow-neon"
+            >
+              {tab === "following" ? "Find creators →" : "Create a meme ✨"}
             </Link>
           </div>
         )}
